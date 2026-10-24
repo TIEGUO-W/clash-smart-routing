@@ -1,0 +1,3 @@
+test/out/
+*.bak-*
+.DS_Store

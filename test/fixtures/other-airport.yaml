@@ -1,0 +1,18 @@
+# 测试用：模拟"另一个机场"的订阅——组名和本仓库完全不同
+proxies:
+  - {name: 香港 01, type: ss, server: 127.0.0.1, port: 1, cipher: aes-128-gcm, password: x}
+  - {name: 香港 02, type: ss, server: 127.0.0.1, port: 2, cipher: aes-128-gcm, password: x}
+  - {name: 日本 01, type: ss, server: 127.0.0.1, port: 3, cipher: aes-128-gcm, password: x}
+  - {name: 新加坡 01, type: ss, server: 127.0.0.1, port: 4, cipher: aes-128-gcm, password: x}
+  - {name: 美国 01, type: ss, server: 127.0.0.1, port: 5, cipher: aes-128-gcm, password: x}
+  - {name: 美国 02, type: ss, server: 127.0.0.1, port: 6, cipher: aes-128-gcm, password: x}
+  - {name: 台湾 01, type: ss, server: 127.0.0.1, port: 7, cipher: aes-128-gcm, password: x}
+  - {name: 俄罗斯 01, type: ss, server: 127.0.0.1, port: 8, cipher: aes-128-gcm, password: x}
+  - {name: 剩余流量：100GB, type: ss, server: 127.0.0.1, port: 9, cipher: aes-128-gcm, password: x}
+proxy-groups:
+  - {name: PROXY, type: select, proxies: [香港 01, 香港 02, 日本 01, 新加坡 01, 美国 01, 美国 02, 台湾 01, 俄罗斯 01]}
+  - {name: 直连, type: select, proxies: [香港 01]}
+rules:
+  - DOMAIN-SUFFIX,example.com,PROXY
+  - GEOIP,CN,直连
+  - MATCH,PROXY
