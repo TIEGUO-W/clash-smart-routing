@@ -7,8 +7,12 @@
 const TEST_URL = 'https://www.gstatic.com/generate_204';   // 通用测速：HTTP 204，最省流量
 const AI_TEST_URL = 'https://chatgpt.com/cdn-cgi/trace';   // AI 测速：只认真正能过 OpenAI 的线路
 const INTERVAL = 120;        // 通用组测速间隔（秒）
-const AI_INTERVAL = 180;     // AI 组测速间隔（秒）
+const AI_INTERVAL = 120;     // AI 组测速间隔（秒）
 const TOLERANCE = 50;        // 迟滞：新节点必须快 50ms 以上才切换，防来回跳
+// 健康判据：必须真的返回期望状态码才算"活着"。
+// 不写这两行的话，一个立刻返回 503 的死节点会因为"响应最快"而被选中。
+const TEST_EXPECTED = 204;   // gstatic/generate_204
+const AI_EXPECTED = 200;     // chatgpt.com/cdn-cgi/trace：能过 GPT 才是 200
 const JUNK = /官网|剩余|到期|套餐|订阅|流量|重置|过期|网址|群组/i;
 
 const G = {
@@ -67,11 +71,8 @@ function main(config, profileName) {
   const buckets = { hk: [], tw: [], jp: [], sg: [], us: [], gb: [], kr: [], my: [], ru: [], misc: [] };
   for (const n of nodes) buckets[regionOf(n)].push(n);
 
-  // OpenAI / Claude 封锁香港与俄罗斯，AI 自动组只在这些地区之外挑
-  const aiNodes = nodes.filter(function (n) {
-    const r = regionOf(n);
-    return r !== 'hk' && r !== 'ru';
-  });
+  // AI 组不再按地区名预筛（实测该机场的香港/俄罗斯节点多数也能过 GPT，
+  // 反而把好节点排除了）。真正的判据是 expected-status: 200。
 
   const groups = config['proxy-groups'];
   const byName = new Map();
@@ -87,11 +88,13 @@ function main(config, profileName) {
     byName.set(g.name, g);
     addons.push(g);
   };
-  const urlTest = function (name, list, url, interval) {
-    return { name: name, type: 'url-test', url: url, interval: interval, tolerance: TOLERANCE, lazy: false, proxies: list };
+  const urlTest = function (name, list, url, interval, expected) {
+    return { name: name, type: 'url-test', url: url, interval: interval, tolerance: TOLERANCE,
+             'expected-status': expected, lazy: false, proxies: list };
   };
-  const fallback = function (name, list) {
-    return { name: name, type: 'fallback', url: TEST_URL, interval: INTERVAL, proxies: list };
+  const fallback = function (name, list, expected) {
+    return { name: name, type: 'fallback', url: TEST_URL, interval: INTERVAL,
+             'expected-status': expected, proxies: list };
   };
   const select = function (name, list) {
     return { name: name, type: 'select', proxies: dedupe(list) };
@@ -100,10 +103,10 @@ function main(config, profileName) {
   // ── 建组（顺序即界面顺序）──────────────────────────────────
   upsert(select(G.master, [G.auto, G.fallback, G.github, G.twitter, G.ai,
     G.hk, G.tw, G.jp, G.sg, G.us, G.misc]));
-  upsert(urlTest(G.auto, nodes, TEST_URL, INTERVAL));
-  upsert(fallback(G.fallback, nodes));
-  if (aiNodes.length) upsert(urlTest(G.aiAuto, aiNodes, AI_TEST_URL, AI_INTERVAL));
-  if (buckets.us.length) upsert(urlTest(G.usAuto, buckets.us, TEST_URL, INTERVAL));
+  upsert(urlTest(G.auto, nodes, TEST_URL, INTERVAL, TEST_EXPECTED));
+  upsert(fallback(G.fallback, nodes, TEST_EXPECTED));
+  upsert(urlTest(G.aiAuto, nodes, AI_TEST_URL, AI_INTERVAL, AI_EXPECTED));
+  if (buckets.us.length) upsert(urlTest(G.usAuto, buckets.us, TEST_URL, INTERVAL, TEST_EXPECTED));
 
   upsert(select(G.github, [G.auto, G.fallback, G.us, G.jp, G.sg, G.tw, G.hk]));
   upsert(select(G.twitter, [G.auto, G.fallback, G.us, G.jp, G.sg, G.tw, G.hk]));
@@ -138,7 +141,7 @@ function main(config, profileName) {
   const pinned = [];
   if (pinSelect(G.abroad, smart.concat([G.master], regionNames, nodes))) pinned.push(G.abroad);
   if (pinSelect(G.other, smart.concat([G.master], regionNames, nodes))) pinned.push(G.other);
-  if (pinSelect(G.ai, [aiNodes.length ? G.aiAuto : G.auto]
+  if (pinSelect(G.ai, [G.aiAuto]
     .concat(byName.has(G.us) ? [G.us] : [], byName.has(G.jp) ? [G.jp] : [])
     .concat(byName.has(G.sg) ? [G.sg] : [], byName.has(G.tw) ? [G.tw] : [])
     .concat(smart, buckets.us))) pinned.push(G.ai);

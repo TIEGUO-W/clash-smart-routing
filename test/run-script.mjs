@@ -36,6 +36,8 @@ for (const g of groups) {
   if (g.type === 'url-test' || g.type === 'fallback') {
     if (!g.url) problems.push('测速组缺 url：' + g.name);
     if (!Number.isInteger(g.interval) || g.interval <= 0) problems.push('测速组 interval 非法：' + g.name);
+    // 没有 expected-status 时，一个秒回 503 的死节点会因为"响应最快"被选中
+    if (!Number.isInteger(g['expected-status'])) problems.push('测速组缺 expected-status：' + g.name);
   }
 }
 
@@ -80,7 +82,7 @@ const report = {
   groupsOfInterest: mine
     .map((n) => groups.find((g) => g.name === n))
     .filter(Boolean)
-    .map((g) => ({ name: g.name, type: g.type, url: g.url || '-', interval: g.interval || '-', members: stat(g), head: (g.proxies || []).slice(0, 4) })),
+    .map((g) => ({ name: g.name, type: g.type, url: g.url || '-', interval: g.interval || '-', expected: g['expected-status'] || '-', members: stat(g), head: (g.proxies || []).slice(0, 3) })),
   ruleTotal,
   ruleIssues,
   problems,
