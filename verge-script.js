@@ -6,8 +6,10 @@
 
 const TEST_URL = 'https://www.gstatic.com/generate_204';   // 通用测速：HTTP 204，最省流量
 const AI_TEST_URL = 'https://chatgpt.com/cdn-cgi/trace';   // AI 测速：只认真正能过 OpenAI 的线路
-const INTERVAL = 120;        // 通用组测速间隔（秒）
-const AI_INTERVAL = 120;     // AI 组测速间隔（秒）
+// 间隔别开太猛：实测并发刷几十个节点会被机场回 504，全组一起变红。
+const INTERVAL = 600;        // 通用组测速间隔（秒，10 分钟）
+const AI_INTERVAL = 600;     // AI 组测速间隔（秒）
+const FALLBACK_INTERVAL = 1800; // 故障转移组更懒（它的价值是"连不上就换"，不依赖新鲜度）
 const TOLERANCE = 50;        // 迟滞：新节点必须快 50ms 以上才切换，防来回跳
 // 健康判据：必须真的返回期望状态码才算"活着"。
 // 不写这两行的话，一个立刻返回 503 的死节点会因为"响应最快"而被选中。
@@ -93,7 +95,7 @@ function main(config, profileName) {
              'expected-status': expected, lazy: false, proxies: list };
   };
   const fallback = function (name, list, expected) {
-    return { name: name, type: 'fallback', url: TEST_URL, interval: INTERVAL,
+    return { name: name, type: 'fallback', url: TEST_URL, interval: FALLBACK_INTERVAL,
              'expected-status': expected, proxies: list };
   };
   const select = function (name, list) {
@@ -173,6 +175,24 @@ function main(config, profileName) {
     break;
   }
   config.rules = extra.concat(ruleList);
-  config['proxy-groups'] = addons.concat(groups);
+
+  // ── 兜底剪枝：不同机场的组名千差万别。
+  // 只要引用了不存在的名字（例如某些机场没有 🤖AI服务），内核会直接拒绝整份配置，
+  // 表现为"应用后完全没网"。这里把所有悬空引用去掉，空的组直接丢弃。
+  const nodeSet = new Set(nodes);
+  const prune = function (list) {
+    return dedupe(list).filter(function (n) { return nodeSet.has(n) || byName.has(n); });
+  };
+  for (const g of addons) if (Array.isArray(g.proxies)) g.proxies = prune(g.proxies);
+
+  const dropped = new Set();
+  for (const g of addons) if (Array.isArray(g.proxies) && g.proxies.length === 0) dropped.add(g.name);
+
+  const kept = addons.filter(function (g) { return !dropped.has(g.name); });
+  for (const g of kept.concat(groups)) {
+    if (!Array.isArray(g.proxies)) continue;
+    g.proxies = g.proxies.filter(function (n) { return !dropped.has(n); });
+  }
+  config['proxy-groups'] = kept.concat(groups);
   return config;
 }

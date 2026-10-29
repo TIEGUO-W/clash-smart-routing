@@ -5,10 +5,7 @@
 #
 # 可用环境变量覆盖自动探测： VERGE_HOME / PROFILE / MIHOMO
 # ─────────────────────────────────────────────────────────────
-set -uo pipefail
-VERGE_HOME=""
-MIHOMO=""
-PROFILE=""
+set -o pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 
 detect_verge_home() {
