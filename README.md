@@ -43,6 +43,8 @@
 
 ## 快速开始
 
+> 懒人版：在仓库目录执行 `bash install.sh`，它会自动找到 Verge 的当前订阅、把脚本写进对应的扩展脚本槽位，并做 md5 校验；`--check` 只看状态，`--off` 一键摘掉。
+
 **1. 复制脚本**
 打开 `verge-script.js`，全选复制。
 
@@ -190,6 +192,7 @@ MATCH 改写 -> MATCH,🚀 智能选择
 
 ```
 verge-script.js                扩展脚本本体（贴进 Verge 用这一个文件就够）
+install.sh                     一条命令把脚本挂到当前订阅的扩展脚本槽位
 test/verify.sh                 端到端校验：真实订阅 + 真实内核
 test/run-script.mjs            断言脚本（12 项结构检查）
 test/fixtures/                 异名机场回归用例
